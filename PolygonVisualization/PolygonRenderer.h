@@ -1,5 +1,5 @@
-#if !defined _POYGONRENDERER_H
-#define _POYGONRENDERER_H
+#pragma once
+#include <QGraphicsScene>
 
 class PolygonModel;
 class PolygonRenderer;
@@ -9,7 +9,7 @@ class IRenderStyleObserver
 public:
 	IRenderStyleObserver(){};
 	virtual ~IRenderStyleObserver(){};
-	virtual void OnRenderStyleChanged(const PolygonRenderer* p_renderer) = 0;
+	virtual void onRenderStyleChanged(const PolygonRenderer* p_renderer) = 0;
 };
 
 class PolygonRenderer
@@ -17,8 +17,8 @@ class PolygonRenderer
 public:
 	PolygonRenderer();
 	virtual ~PolygonRenderer();
-	void Draw(CDC& dc, const CRect& cli_rect, const PolygonModel& model);
-	void SetObserver(IRenderStyleObserver* p_observer_)
+    void draw(QGraphicsScene& scene, const PolygonModel& model);
+	void setObserver(IRenderStyleObserver* p_observer_)
 	{
 		p_observer = p_observer_;
 	}
@@ -26,12 +26,11 @@ public:
 
 private:
 	IRenderStyleObserver* p_observer;
-	COLORREF polygon_color, points_color, bcg_color;
+    QColor polygon_color, points_color, bcg_color;
+    const double points_rad = 6.0;
 private:
-	void DrawPolygon(CDC& dc, const PolygonModel& model);
-	void DrawPoints(CDC& dc, const PolygonModel& model);
-	void DrawTestPoint(CDC& dc, const PolygonModel& model);
-	void DrawBackground(CDC& dc, const CRect& cli_rect);
+    void drawPolygon(QGraphicsScene& scene, const PolygonModel& model);
+    void drawPoints(QGraphicsScene& scene, const PolygonModel& model);
+    void drawTestPoint(QGraphicsScene& scene, const PolygonModel& model);
+    void drawBackground(QGraphicsScene& scene);
 };
-
-#endif

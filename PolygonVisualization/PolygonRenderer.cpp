@@ -1,142 +1,134 @@
-#include "stdafx.h"
 #include "PolygonRenderer.h"
 #include "PolygonModel.h"
+#include <QGraphicsEllipseItem>
 
 
 PolygonRenderer::PolygonRenderer()
 {
-	polygon_color = RGB(136, 136, 136);
-	points_color = RGB(0, 0, 0);
-	bcg_color = RGB(255, 255, 255);
-	p_observer = NULL;
+    polygon_color = QColor(136, 136, 136);
+    points_color = QColor(0, 0, 0);
+    bcg_color = QColor(255, 255, 255);
+    p_observer = nullptr;
 }
 PolygonRenderer::~PolygonRenderer()
 {
 
 }
 
-void PolygonRenderer::DrawPolygon(CDC& dc, const PolygonModel& model)
+void PolygonRenderer::drawPolygon(QGraphicsScene& scene, const PolygonModel& model)
 {
-	if (model.GetNumPoints() < 3)
+	if (model.getNumPoints() < 3)
 		return;
-	PolygonModel::PointsIterator iter = model.GetPointsIterator();
-
-	CRgn polygon;
-	CBrush polygon_brush(polygon_color);
-	CPoint* array = new CPoint[model.GetNumPoints()];
-	int i = 0;
-	while (iter.HasMoreElements())
+	PolygonModel::PointsIterator iter = model.getPointsIterator();
+    QPolygonF polygon;
+    polygon.reserve(model.getNumPoints());
+    int i = 0;
+	while (iter.hasMoreElements())
 	{
-		Point2D cur_pnt = iter.GetCurValue();
-		array[i].x = cur_pnt.x;
-		array[i].y = cur_pnt.y;
+		Point2D cur_pnt = iter.getCurValue();
+        polygon.append(QPointF(cur_pnt.x, cur_pnt.y));
 
 		++i;
-		iter.MoveNext();
+		iter.moveNext();
 	}
-	polygon.CreatePolygonRgn(&array[0], model.GetNumPoints(), ALTERNATE);
-	dc.FillRgn(&polygon, &polygon_brush);
-	delete[] array;
+    QBrush polygon_brush(polygon_color);
+    scene.addPolygon(polygon, QPen(Qt::PenStyle::SolidLine), polygon_brush);
 }
-void PolygonRenderer::DrawPoints(CDC& dc, const PolygonModel& model)
+void PolygonRenderer::drawPoints(QGraphicsScene& scene, const PolygonModel& model)
 {
-	if (model.GetNumPoints() == 0)
+	if (model.getNumPoints() == 0)
 		return;
-	CRgn marker;
-	marker.CreateEllipticRgn(-6, -6, 6, 6);
-	CBrush points_brush(points_color);
+    QBrush points_brush(points_color, Qt::SolidPattern);
 
+    QPen points_pen(points_brush, 2, Qt::PenStyle::SolidLine);
 
-	CPen pn(PS_SOLID, 2, polygon_color);
-	CPen* oldPen = dc.SelectObject(&pn);
+	PolygonModel::PointsIterator iter = model.getPointsIterator();
+	Point2D prev_pnt = iter.getCurValue();
 
-	PolygonModel::PointsIterator iter = model.GetPointsIterator();
-	Point2D prev_pnt = iter.GetCurValue();
-	Point2D first_pnt = prev_pnt;
-	marker.OffsetRgn(prev_pnt.x, prev_pnt.y);
-	dc.FillRgn(&marker, &points_brush);
-	dc.MoveTo(prev_pnt.x, prev_pnt.y);
-	iter.MoveNext();
-	while (iter.HasMoreElements())
+    scene.addEllipse(prev_pnt.x-points_rad, prev_pnt.y-points_rad, points_rad*2.0, points_rad*2.0, points_pen,
+              points_brush);
+
+    Point2D first_pnt = prev_pnt;
+
+    iter.moveNext();
+	while (iter.hasMoreElements())
 	{
-		Point2D cur_pnt = iter.GetCurValue();
-		marker.OffsetRgn(cur_pnt.x - prev_pnt.x, cur_pnt.y - prev_pnt.y);
-		dc.FillRgn(&marker, &points_brush);
-		dc.LineTo(cur_pnt.x, cur_pnt.y);
+		Point2D cur_pnt = iter.getCurValue();
+
+        scene.addEllipse(cur_pnt.x-points_rad, cur_pnt.y-points_rad, points_rad*2.0, points_rad*2.0, points_pen,
+                         points_brush);
+
+        scene.addLine(prev_pnt.x,
+                    prev_pnt.y,
+                    cur_pnt.x,
+                    cur_pnt.y,
+                    points_pen);
+
 		prev_pnt = cur_pnt;
-		iter.MoveNext();
+		iter.moveNext();
 	}
-	if (model.GetCurrentState() == POLYGON_COMPLETED)
+    if (model.getCurrentState() == ePolygonState::POLYGON_COMPLETED)
 	{
-		dc.LineTo(first_pnt.x, first_pnt.y);
+        scene.addLine(prev_pnt.x,
+                    prev_pnt.y,
+                    first_pnt.x,
+                    first_pnt.y,
+                    points_pen);
 	}
-	dc.SelectObject(oldPen);
 }
 
-void PolygonRenderer::DrawBackground(CDC& dc, const CRect& cli_rect)
+void PolygonRenderer::drawBackground(QGraphicsScene& scene)
 {
-	CBrush bcg_brush(bcg_color);
-	CBrush* oldBrush = dc.SelectObject(&bcg_brush);
-	//stuff
-	dc.FillRect(&cli_rect, &bcg_brush);
-
-	dc.SelectObject(oldBrush);
+    QBrush bcg_brush(bcg_color);
+    scene.setBackgroundBrush(bcg_brush);
 }
 
-void PolygonRenderer::DrawTestPoint(CDC& dc, const PolygonModel& model)
+void PolygonRenderer::drawTestPoint(QGraphicsScene& scene, const PolygonModel& model)
 {
 	Point2D fill;
 
-	if (model.GetTestPoint(fill))
+	if (model.getTestPoint(fill))
 	{
 
 		bool is_inside;
 		double dist;
 		Point2D proj_pnt;
-		CPen pn(PS_SOLID, 2, RGB(255, 0, 0));
-		CPen* oldPen = dc.SelectObject(&pn);
-		if (model.GetTestPointsAttributes(proj_pnt, dist, is_inside))
+
+        if (model.getTestPointsAttributes(proj_pnt, dist, is_inside))
 		{
-			if (is_inside)
-			{
-				CRgn marker;
-				marker.CreateEllipticRgn(-6, -6, 6, 6);
-				CBrush points_brush(RGB(255, 0, 0));
-				marker.OffsetRgn(fill.x, fill.y);
-				dc.FillRgn(&marker, &points_brush);
-			}
-			else
-			{				
-				dc.Ellipse(fill.x - 6, fill.y - 6, fill.x + 6, fill.y + 6);
-			}
-			//draw proj_pnt
+            QColor projection_point_color = is_inside ? QColor(255, 0, 0) : QColor(255, 255, 255);
+            QBrush brush(projection_point_color, Qt::SolidPattern);
+            QPen pen(QColor(255, 0, 0), 2, Qt::PenStyle::SolidLine);
 
-			dc.MoveTo(proj_pnt.x - 6, proj_pnt.y - 6);
-			dc.LineTo(proj_pnt.x + 6, proj_pnt.y + 6);
-			dc.MoveTo(proj_pnt.x + 6, proj_pnt.y - 6);
-			dc.LineTo(proj_pnt.x - 6, proj_pnt.y + 6);
+              scene.addEllipse(fill.x - points_rad, fill.y - points_rad, points_rad*2.0, points_rad*2.0, pen, brush);
 
-			//
-			CPen pn_1(PS_DASH, 1, RGB(0, 0, 255));
-			CPen* oldPen_1 = dc.SelectObject(&pn_1);
-			dc.MoveTo(fill.x, fill.y);
-			dc.LineTo(proj_pnt.x, proj_pnt.y);
-			dc.SelectObject(oldPen_1);
-			
+              //draw proj_pnt mark
+              scene.addLine(proj_pnt.x - points_rad, proj_pnt.y - points_rad,
+                        proj_pnt.x + points_rad, proj_pnt.y + points_rad,
+                        pen);
+              scene.addLine(proj_pnt.x + points_rad, proj_pnt.y - points_rad,
+                        proj_pnt.x - points_rad, proj_pnt.y + points_rad,
+                        pen);
+
+            QBrush projection_brush(QColor(0, 0, 255), Qt::SolidPattern);
+            QPen projection_pen(projection_brush, 1, Qt::PenStyle::DashLine);
+            //draw projection line
+            scene.addLine(fill.x, fill.y,
+                        proj_pnt.x, proj_pnt.y,
+                        projection_pen);
+
 		}
-		dc.SelectObject(oldPen);
-	
 	}
 }
 
-void PolygonRenderer::Draw(CDC& dc, const CRect& cli_rect, const PolygonModel& model)
+void PolygonRenderer::draw(QGraphicsScene& scene, const PolygonModel& model)
 {
-	DrawBackground(dc, cli_rect);
-	if (model.GetCurrentState() == POLYGON_COMPLETED)
+    drawBackground(scene);
+    if (model.getCurrentState() == ePolygonState::POLYGON_COMPLETED)
 	{
-		DrawPolygon(dc, model);
-		DrawTestPoint(dc, model);
+        drawPolygon(scene, model);
+        drawTestPoint(scene, model);
 	}
-	DrawPoints(dc, model);
+    drawPoints(scene, model);
 
 }

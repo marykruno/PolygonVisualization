@@ -1,12 +1,20 @@
-#include "stdafx.h"
 #include "PolygonModel.h"
 #include "SQDist.h"
 #include <math.h>
 #include "IsPointInsidePolygon.h"
 
-double CalculateArea( const vector<Point2D>& pts)
+Point2D operator+(Point2D first, const Point2D& second) {
+    first += second;
+    return first;
+}
+Point2D operator-(Point2D first, const Point2D& second) {
+    first -= second;
+    return first;
+}
+
+double CalculateArea(const vector<Point2D>& pts)
 {
-	double ret = 0;
+    double ret = 0.0;
 	if (pts.size() < 3)
 		return ret;
 
@@ -21,38 +29,39 @@ double CalculateArea( const vector<Point2D>& pts)
 
 PolygonModel::PolygonModel()
 {
-	my_observer = NULL;
-	state = BUILDING_POLYGON;
+    my_observer = nullptr;
+    state = ePolygonState::BUILDING_POLYGON;
 }
 
-PolygonModel::PointsIterator PolygonModel::GetPointsIterator() const
+PolygonModel::PointsIterator PolygonModel::getPointsIterator() const
 {
 	return PolygonModel::PointsIterator(pts);
 }
 
-double PolygonModel::GetOrientedArea() const
+double PolygonModel::getOrientedArea() const
 {
 	return CalculateArea(pts);
 }
 
-bool PolygonModel::GetTestPointsAttributes(Point2D& proj_pnt, double& dist, bool& is_inside) const
+bool PolygonModel::getTestPointsAttributes(Point2D& proj_pnt, double& dist, bool& is_inside) const
 {
 	if (pts.size() == 0)
 		return false;
-
-		double temp = SQDistFromPointToEdge<Point2D>(tst_info.test_point, pts[pts.size()-1], pts[0], proj_pnt);
-		for (size_t i = 0; i < pts.size() - 1; ++i)
-		{
-			Point2D temp_proj_pnt;
-			double temp_temp = SQDistFromPointToEdge<Point2D>(tst_info.test_point, pts[i], pts[i + 1], temp_proj_pnt);
-			if (SQDistFromPointToEdge<Point2D>(tst_info.test_point, pts[i], pts[i + 1], temp_proj_pnt) < temp)
-			{
-				temp = temp_temp;
-				proj_pnt = temp_proj_pnt;
-			}
-		}
-		dist = temp;
-		is_inside = IsPointInPolygon<Point2D, Traits<Point2D>>(pts, tst_info.test_point);
-		return true;
+    
+    double min_dist = SQDistFromPointToEdge<Point2D, Accessor<Point2D> >(tst_info.test_point, pts[pts.size()-1], pts[0], proj_pnt);
+    
+    for (size_t i = 0; i < pts.size() - 1; ++i)
+    {
+        Point2D cur_proj_pnt;
+        double cur_dist = SQDistFromPointToEdge<Point2D, Accessor<Point2D>>(tst_info.test_point, pts[i], pts[i + 1], cur_proj_pnt);
+        if (cur_dist < min_dist)
+        {
+            min_dist = cur_dist;
+            proj_pnt = cur_proj_pnt;
+        }
+    }
+    dist = min_dist;
+    is_inside = isPointInPolygon<Point2D, Traits<Point2D>>(pts, tst_info.test_point);
+    return true;
 
 }
